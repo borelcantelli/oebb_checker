@@ -160,6 +160,6 @@ class Requestor:
     def get_datetime(text):
         return datetime.strptime(text[:-4], '%Y-%m-%dT%H:%M:%S')
     
-# for now, get access token from request headers by visiting https://shop.oebbtickets.at/en/ticket
+# for now, get access token from request headers by visiting https://shop.oebbtickets.at/en/ticket. Each token valid for 15m
     
     
