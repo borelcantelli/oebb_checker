@@ -7,18 +7,19 @@ import os
 import logging
 
 from oebb_checker.oebb import Station, Line
-from oebb_checker.constants import ACCESS_TOKEN, USER_ID
+from oebb_checker.constants import USER_ID
 
 
 _LOGGER = logging.getLogger(__name__)
 p_request = requests.Session()
 
 class Requestor:
-    def __init__(self, cookie_keep_time=2300, auto_auth=True):
+    def __init__(self, cookie_keep_time=2300, auto_auth=True, access_token=None):
         self.session_keep_time = min(cookie_keep_time, 2300)
         self.session_expires = 0
         self.headers = {'Channel': 'inet', 'User-Agent' : 'Mozilla/5.0'}
         self.auto_auth = auto_auth
+        self.access_token = access_token
 
     def stations(self, name=''):
         r = self._make_request('https://shop.oebbtickets.at/api/hafas/v1/stations',
@@ -92,7 +93,7 @@ class Requestor:
 
         if r.status_code == 200:
             lines = json.loads(r.text)['connections']
-            return [Line(line, line['sections']) for line in lines]
+            return [Line(line, line['sections'], self.access_token) for line in lines]
         else:
             raise requests.ConnectionError(f'Endpoint returned error {r.status_code}')
 
@@ -140,9 +141,8 @@ class Requestor:
         r = p_request.get('https://shop.oebbtickets.at/api/domain/v3/init',
                          headers=self.headers,
                          params={'userId': USER_ID})
-        print(r.text)
         r = json.loads(r.text)
-        self.headers.update({'AccessToken': ACCESS_TOKEN,
+        self.headers.update({'AccessToken': self.access_token,
                              'SessionId': r['sessionId'],
                              'x-ts-supportid': r['supportId']})
         self.session_expires = int(time()) + self.session_keep_time
@@ -160,6 +160,5 @@ class Requestor:
     def get_datetime(text):
         return datetime.strptime(text[:-4], '%Y-%m-%dT%H:%M:%S')
     
-# for now, get access token from request headers by visiting https://shop.oebbtickets.at/en/ticket. Each token valid for 15m
     
     
