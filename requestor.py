@@ -74,7 +74,7 @@ class Requestor:
                            'birthdateDeletable': True,
                        }
                    ],
-                   'count': count,
+                   'count': 5,
                    'debugFilter': {'noAggregationFilter': False,
                                    'noEqclassFilter': False,
                                    'noNrtpathFilter': False,
@@ -89,7 +89,6 @@ class Requestor:
             default.update(opt)
         r = self._make_request('https://shop.oebbtickets.at/api/hafas/v4/timetable',
                                data=default)
-
 
         if r.status_code == 200:
             lines = json.loads(r.text)['connections']
@@ -114,8 +113,11 @@ class Requestor:
             default.update(opt)
         r = self._make_request('https://shop.oebbtickets.at/api/hafas/v1/timetableScroll',
                                data=default)
-        r = json.loads(r.text)
-        return r['connections']
+        if r.status_code == 200:
+            lines = json.loads(r.text)['connections']
+            return [Line(line, line['sections'], self.access_token) for line in lines]
+        else:
+            raise requests.ConnectionError(f'Endpoint returned error {r.status_code}')
 
     def prices(self, connections):
         params = {'connectionIds[]': []}
@@ -125,8 +127,14 @@ class Requestor:
         params['bestPriceId'] = 'undefined'
         r = self._make_request('https://shop.oebbtickets.at/api/offer/v1/prices',
                                params=params)
-        r = json.loads(r.text)
-        return r['offers'][0]['price']
+        if r.status_code == 200:
+            r = json.loads(r.text)
+            if 'price' not in r['offers'][0]:
+                return -1
+            else:
+                return r['offers'][0]['price']
+        else:
+            raise requests.ConnectionError(f'Endpoint returned error {r.status_code}')
 
     def _make_request(self, url, data=None, params=None):
         if self.auto_auth and (int(time()) > self.session_expires):

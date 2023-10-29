@@ -33,28 +33,34 @@ class Section:
         self.arrival = dt.datetime.fromisoformat(arrival_time)
         self.train_id = train_id
         self.train_direction = train_direction
-    
+
     def _pretty_time(self, time):
         return dt.date.strftime(time, '%T')
     
     def _format_duration(self, time):
-        hours = float(time) / 360000
-        return hours
-
+        hours = time // 3600000
+        mins = (time % 3600000) // 60000
+        return f'{hours}:{mins:02d} hrs'
+    
     def __str__(self):
-        return f'{self.src_station} ({self._pretty_time(self.departure)}) --({self.train_id} {self.duration}hrs)-> {self.dst_station} ({self._pretty_time(self.arrival)})'
+        return f'{self.src_station} ({self._pretty_time(self.departure)}) --({self.train_id} {self.duration})-> {self.dst_station} ({self._pretty_time(self.arrival)})'
     
     def __repr__(self):
-        return f'{self.src_station} ({self._pretty_time(self.departure)}) --({self.train_id} {self.duration}hrs)-> {self.dst_station} ({self._pretty_time(self.arrival)})'
+        return f'{self.src_station} ({self._pretty_time(self.departure)}) --({self.train_id} {self.duration})-> {self.dst_station} ({self._pretty_time(self.arrival)})'
 
 class Line:
     def __init__(self, line_info, section_list, access_token):
         self.token = access_token
         self.sections = []
         for section in section_list:
-            s = Section(src_name=section['from']['name'], dst_name=section['to']['name'], duration = self._format_duration(section['duration']), 
-                        departure_time=section['from']['departure'], arrival_time=section['to']['arrival'],
-                        train_id=section['category']['name'] + section['category']['number'], train_direction=section['category']['direction'])
+            try:
+                s = Section(src_name=section['from']['name'], dst_name=section['to']['name'], duration = self._format_duration(section['duration']), 
+                            departure_time=section['from']['departure'], arrival_time=section['to']['arrival'],
+                            train_id=section['category']['name'] + section['category']['number'], train_direction=section['category']['direction'])
+            except KeyError: # if walking is required
+                s = Section(src_name=section['from']['name'], dst_name=section['to']['name'], duration = self._format_duration(section['duration']), 
+                            departure_time=section['from']['departure'], arrival_time=section['to']['arrival'],
+                            train_id=section['category']['longName']['en'], train_direction=None)
             self.sections.append(s)
         
         self.id = line_info['id']
@@ -64,17 +70,18 @@ class Line:
         self.price = self._get_price()
 
     def _format_duration(self, time):
-        hours = float(time) / 3600000
-        return round(hours, 2)
+        hours = time // 3600000
+        mins = (time % 3600000) // 60000
+        return f'{hours}:{mins:02d} hrs'
     
     def _get_price(self):
         from oebb_checker.requestor import Requestor
         r = Requestor(access_token=self.token)
         offer = r.prices([self.line_info])
-        return offer
+        return offer   
     
     def __str__(self):
-        return f"Euro: {self.price}, connections: {self.num_switches}: {', '.join([str(section) for section in self.sections])}"
+        return f"Euro: {self.price}, duration: {self.duration}, switches: {self.num_switches}: {', '.join([str(section) for section in self.sections])}"
     
     def __repr__(self):
-        return f"{self.price}, connections: {self.num_switches}: {', '.join([str(section) for section in self.sections])}"
+        return f"Euro {self.price}, duration: {self.duration}, switches: {self.num_switches}: {', '.join([str(section) for section in self.sections])}"
